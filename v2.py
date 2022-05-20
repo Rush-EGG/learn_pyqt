@@ -1,6 +1,17 @@
+import os
 import sys
+import json
+from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QApplication, QWidget, QDesktopWidget, QHBoxLayout, QVBoxLayout, QPushButton, QLineEdit, \
     QTableWidget, QTableWidgetItem, QLabel
+
+BASE_DIR = os.path.dirname(os.path.realpath(sys.argv[0]))
+
+STATUS_MAPPING = {
+    0: "初始化中",
+    1: "待执行",
+    2: "正在执行",
+}
 
 
 class MainWindow(QWidget):
@@ -62,7 +73,6 @@ class MainWindow(QWidget):
         return form_layout
 
     def init_table(self):
-
         table_layout = QHBoxLayout()
         # 0行8列的表格
         table_widget = QTableWidget(0, 8)
@@ -70,7 +80,7 @@ class MainWindow(QWidget):
         # 表格标题元组
         table_header = [
             {'filed': 'asin', 'text': 'ASIN', 'width': 120},
-            {'filed': 'title', 'text': "标题", 'width': 150},
+            {'filed': 'title', 'text': "标题", 'width': 160},
             {'filed': 'url', 'text': 'URL', 'width': 400},
             {'filed': 'price', 'text': "底价", 'width': 100},
             {'filed': 'success', 'text': "成功次数", 'width': 100},
@@ -86,12 +96,36 @@ class MainWindow(QWidget):
             table_widget.setHorizontalHeaderItem(idx, item)
             table_widget.setColumnWidth(idx, info['width'])
 
+        # 在表格种添加数据
+        # 读取数据文件
+        file_path = os.path.join(BASE_DIR, 'db', 'db.json')
+        with open(file_path, mode='r', encoding='utf-8') as f:
+            data = f.read()
+        data_list = json.loads(data)
+        # print(data_list)
+
+        current_row_count = table_widget.rowCount()  # 获取当前表格有多少行
+        for row_list in data_list:
+            # 添加新的一行
+            table_widget.insertRow(current_row_count)
+            for i, ele in enumerate(row_list):
+                if i == 6:  # 修改状态在表格中的体现形式
+                    ele = STATUS_MAPPING[ele]
+                # 创建一个单元格
+                ceil = QTableWidgetItem(str(ele))
+                # 设置单元格不可修改
+                if i in [0, 4, 5, 6]:
+                    ceil.setFlags(Qt.ItemIsSelectable | Qt.ItemIsEnabled)
+                # 三个参数分别是：行，列，内容
+                table_widget.setItem(current_row_count, i, ceil)
+
+            current_row_count += 1
+
         table_layout.addWidget(table_widget)
 
         return table_layout
 
     def init_bottom(self):
-
         bottom_layout = QHBoxLayout()
 
         label_status = QLabel("未检测", self)
