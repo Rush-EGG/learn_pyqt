@@ -1,3 +1,5 @@
+import time
+import random
 import bs4
 import requests
 from bs4 import BeautifulSoup
@@ -49,3 +51,70 @@ class NewTaskThread(QThread):
         except Exception as e:
             title = "监控项 {} 添加失败".format(self.asin)
             self.error.emit(self.row_index, self.asin, title, str(e))
+
+
+class TaskThread(QThread):
+    # 创建信号
+    start_signal = pyqtSignal(int)
+    stop_signal = pyqtSignal(int)
+    counter_signal = pyqtSignal(int)
+    error_counter_signal = pyqtSignal(int)
+
+    def __init__(self, scheduler, log_file_path, row_index, asin, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.scheduler = scheduler
+        self.log_file_path = log_file_path
+        self.row_index = row_index
+        self.asin = asin
+
+    def run(self):
+        # 触发start_signal
+        self.start_signal.emit(self.row_index)
+
+        # 每过1-3s完成对次数的更新
+        while True:
+            # 如果terminate是True就代表用户点击了停止
+            if self.scheduler.terminate:
+                self.stop_signal.emit(self.row_index)
+                # 把自己从线程列表中移除掉
+                self.scheduler.destroy_thread(self)
+                return
+            try:
+                time.sleep(random.randint(1, 3))
+                self.counter_signal.emit(self.row_index)
+
+                with open(self.log_file_path, mode='a', encoding='utf-8') as f:
+                    f.write("我是猪\n")
+
+                # 监控
+                # 1.根据型号访问链接并通过bs4获取数据
+                # 2.监测价格是否低于预期
+                # 3.发送报警
+                time.sleep(5)
+            except Exception as e:
+                self.error_counter_signal.emit(self.row_index)
+
+
+class StopThread(QThread):
+    # 创建信号
+    update_signal = pyqtSignal(str)
+
+    def __init__(self, scheduler, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.scheduler = scheduler
+
+    def run(self):
+        # 监测线程的数量
+        total_count = len(self.scheduler.thread_list)
+        while True:
+            running_count = len(self.scheduler.thread_list)
+            # 更新到页面上
+            self.update_signal.emit("正在中止({})".format(running_count))
+
+            if running_count == 0:
+                break
+            time.sleep(1)
+
+        self.update_signal.emit("已全部终止")
